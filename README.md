@@ -9,6 +9,9 @@
 ## Usage:
 ### Storage init
 ```golang
+import "github.com/rosberry/storage"
+
+//INITS
 //direct links
 storage.AddStorage("http", bypass.New())
 storage.AddStorage("https", bypass.New())
