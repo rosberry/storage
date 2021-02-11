@@ -109,6 +109,30 @@ Set storage as default
 func SetDefaultStorage(storageKey string) (err error)
 ```
 
+### Example
+
+```golang
+if sp.Photo != "" {
+	tmpfile, _ := ioutil.TempFile("", "avatar-*.jpg")
+	tmpPath := tmpfile.Name()
+	tmpfile.Close()
+	defer os.Remove(tmpPath)
+
+	err := downloadFile(tmpPath, sp.Photo)
+	if err != nil {
+		log.Println(err)
+	}
+
+	link, err := storage.CreateCLinkInStorage(tmpPath, fmt.Sprintf("users/%v", user.ID), "yos")
+	if err != nil {
+		log.Printf("Failed download user avatar for user %v\n", u.ID)
+		user.Photo = sp.Photo
+	} else {
+		user.Photo = link
+	}
+}
+```
+
 ## About
 
 <img src="https://github.com/rosberry/Foundation/blob/master/Assets/full_logo.png?raw=true" height="100" />
