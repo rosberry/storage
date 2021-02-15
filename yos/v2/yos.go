@@ -33,6 +33,15 @@ type (
 	}
 )
 
+type (
+	YandexOption int
+)
+
+const (
+	PublicLink YandexOption = iota + 1
+	LinkForPutObject
+)
+
 const (
 	SchemeHTTPWithSSL    = "https"
 	SchemeHTTPWithoutSSL = "http"
@@ -89,23 +98,7 @@ func (y *YandexObjStorage) GetURL(cLink string, options ...interface{}) (URL str
 		return cLink
 	}
 
-	var public, put bool
-	for _, o := range options {
-		if o == "public" {
-			public = true
-		}
-		if o == "put" {
-			put = true
-		}
-	}
-	//}
-
 	obj := strings.Replace(cLink, y.cfg.StorageKey+":", "", 1)
-
-	if public {
-		downloadLink := fmt.Sprintf("https://%v/%v/%v", y.endpoint, y.cfg.BucketName, obj)
-		return downloadLink
-	}
 
 	s3Client, err := minio.New(y.endpoint, &minio.Options{
 		Region: y.cfg.Region,
@@ -117,13 +110,21 @@ func (y *YandexObjStorage) GetURL(cLink string, options ...interface{}) (URL str
 		return ""
 	}
 
-	if put {
-		presignedURL, err := s3Client.PresignedPutObject(context.Background(), y.cfg.BucketName, obj, time.Duration(30)*time.Minute)
-		if err != nil {
-			log.Println("Failed generate presignedURL: ", err)
-			return ""
+	for _, o := range options {
+		if option, ok := o.(YandexOption); ok {
+			switch option {
+			case PublicLink:
+				downloadLink := fmt.Sprintf("https://%v/%v/%v", y.endpoint, y.cfg.BucketName, obj)
+				return downloadLink
+			case LinkForPutObject:
+				presignedURL, err := s3Client.PresignedPutObject(context.Background(), y.cfg.BucketName, obj, time.Duration(30)*time.Minute)
+				if err != nil {
+					log.Println("Failed generate presignedURL: ", err)
+					return ""
+				}
+				return presignedURL.String()
+			}
 		}
-		return presignedURL.String()
 	}
 
 	//check exist object
