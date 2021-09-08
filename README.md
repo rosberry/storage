@@ -2,75 +2,109 @@
 
 A wrapper for working with files in popular cloud storage
 
-### Supported storages:
+## Supported storages:
 - Direct links (```bypass```)
+- Local (```local```)
 - S3 (```s3```)
-- Cloudfront (```cf```)
+- Cloudfront (```cloudfront```)
 - Yandex Object Storage (```yos```)
 
-## Usage:
-### Storage init
+## Init:
+
+### Bypass
+
+```golang
+import "github.com/rosberry/storage/bypass"
+
+bpStorage := bypass.New()
+```
+
+### Local
+```golang
+import "github.com/rosberry/storage/local"
+
+lStorage := local.New(local.Config{
+	StorageKey: cfg["storageKey"],
+	Endpoint:   cfg["endpoint"],
+	Root:       cfg["root"],
+	BufferSize: 32 * 1024,
+})
+```
+
+### S3
+```golang
+import "github.com/rosberry/storage/s3"
+
+s3Storage := s3.New(&s3.Config{
+	StorageKey:      cfg["storage_key"],
+	Region:          cfg["region"],
+	AccessKeyID:     cfg["access_key_id"],
+	SecretAccessKey: cfg["secret_access_key"],
+	BucketName:      cfg["bucket_name"],
+	Prefix:          cfg["prefix"],
+})
+```
+
+### Cloudfront
+```golang
+import "github.com/rosberry/storage/cloudfront"
+
+cfStorage := cloudfront.New(&cloudfront.Config{
+	StorageKey: cfg["storage_key"],
+	DomainName: cfg["domain_name"],
+	CFPrefix:   cfg["cf_prefix"],
+	StorageCtl: s3Storage, // see section S3
+})
+
+// with signed url's
+cfStorage := cloudfront.New(&cloudfront.Config{
+	StorageKey:   cfg["storage_key"],
+	DomainName:   cfg["domain_name"],
+	CFPrefix:     cfg["cf_prefix"],
+	SignURLs:     true,
+	PrivateKeyID: cfg["private_key_id"],
+	PrivateKey:   cfg["private_key"],
+	StorageCtl: s3Storage,
+})
+```
+
+### YOS
+```golang
+import "github.com/rosberry/storage/yos"
+
+yosStorage := yos.New(&yos.Config{
+	StorageKey:      cfg["storage_key"],
+	Region:          cfg["region"],
+	AccessKeyID:     cfg["access_key_id"],
+	SecretAccessKey: cfg["secret_access_key"],
+	BucketName:      cfg["bucket_name"],
+	Prefix:          cfg["prefix"],
+})
+```
+
+## Multiple storages
 ```golang
 import "github.com/rosberry/storage"
+import "github.com/rosberry/storage/bypass"
+import "github.com/rosberry/storage/local"
+import "github.com/rosberry/storage/s3"
+import "github.com/rosberry/storage/yos"
+import "github.com/rosberry/storage/cloudfront"
 
-//INITS
-//direct links
+// bypass
 storage.AddStorage("http", bypass.New())
 storage.AddStorage("https", bypass.New())
+// local
+storage.AddStorage(cfg["local_storage_key"], lStorage)
+// s3
+storage.AddStorage(cfg["s3_storage_key"], s3Storage)
+// yos
+storage.AddStorage(cfg["yos_storage_key"], yosStorage)
+// Cloudfront
+storage.AddStorage(cfg["cf_storage_key"], cfStorage)
 
-//AWS S3
-storage.AddStorage(instance.Key, s3.New(&s3.Config{
-				StorageKey:      instance.Key,
-				Region:          instance.Cfg["region"],
-				AccessKeyID:     instance.Cfg["access_key_id"],
-				SecretAccessKey: instance.Cfg["secret_access_key"],
-				BucketName:      instance.Cfg["bucket_name"],
-				Prefix:          instance.Cfg["prefix"],
-			}))
-
-
-//Yandex Object Storage
-storage.AddStorage(instance.Key, yos.New(&yos.Config{
-				StorageKey:      instance.Key,
-				Region:          instance.Cfg["region"],
-				AccessKeyID:     instance.Cfg["access_key_id"],
-				SecretAccessKey: instance.Cfg["secret_access_key"],
-				BucketName:      instance.Cfg["bucket_name"],
-				Prefix:          instance.Cfg["prefix"],
-			}))
-        
-//Cloudfront
-storage.AddStorage(instance.Key, cf.New(&cf.Config{
-				StorageKey: instance.Key,
-				DomainName: instance.Cfg["domain_name"],
-				CFPrefix:   instance.Cfg["cf_prefix"],
-				StorageCtl: s3.New(&s3.Config{
-					StorageKey:      instance.Key,
-					Region:          instance.Cfg["region"],
-					AccessKeyID:     instance.Cfg["access_key_id"],
-					SecretAccessKey: instance.Cfg["secret_access_key"],
-					BucketName:      instance.Cfg["bucket_name"],
-					Prefix:          instance.Cfg["prefix"],
-				}),
-            }))
-
-//Cloudfront with signed url's
-storage.AddStorage(instance.Key, cf.New(&cf.Config{
-				StorageKey:   instance.Key,
-				DomainName:   instance.Cfg["domain_name"],
-				CFPrefix:     instance.Cfg["cf_prefix"],
-				SignURLs:     true,
-				PrivateKeyID: instance.Cfg["private_key_id"],
-				PrivateKey:   instance.Cfg["private_key"],
-				StorageCtl: s3.New(&s3.Config{
-					StorageKey:      instance.Key,
-					Region:          instance.Cfg["region"],
-					AccessKeyID:     instance.Cfg["access_key_id"],
-					SecretAccessKey: instance.Cfg["secret_access_key"],
-					BucketName:      instance.Cfg["bucket_name"],
-					Prefix:          instance.Cfg["prefix"],
-				}),
-			}))
+// usage
+st := storage.GetStorage("s3_storage_key")
 ```
 
 ### Functions
