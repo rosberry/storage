@@ -24,7 +24,7 @@ var (
 )
 
 func TestEndSlash(t *testing.T) {
-	var flagtests = []struct {
+	flagtests := []struct {
 		in  string
 		out string
 	}{
@@ -53,7 +53,7 @@ func TestEndSlash(t *testing.T) {
 }
 
 func TestPathToCLink(t *testing.T) {
-	var flagtests = []struct {
+	flagtests := []struct {
 		in  string
 		out string
 	}{
@@ -79,7 +79,7 @@ func TestPathToCLink(t *testing.T) {
 }
 
 func TestCLinkToUrl(t *testing.T) {
-	var flagtests = []struct {
+	flagtests := []struct {
 		in  string
 		out string
 	}{
@@ -103,7 +103,7 @@ func TestCLinkToUrl(t *testing.T) {
 }
 
 func TestGetUrl(t *testing.T) {
-	var flagtests = []struct {
+	flagtests := []struct {
 		in  string
 		out string
 	}{
@@ -113,6 +113,7 @@ func TestGetUrl(t *testing.T) {
 		{testStorageKey + ":" + "folder/folder2/file2.jpg", endSlash(testEndpoint) + "folder/folder2/file2.jpg"},
 		{testStorageKey + ":" + "file1.jpg", endSlash(testEndpoint) + "file1.jpg"},
 		{testStorageKey + ":" + "file 1.jpg", endSlash(testEndpoint) + "file%201.jpg"},
+		{testStorageKey + ":" + "iFile1.jpg", endSlash(testEndpoint) + "iFile1.jpg"},
 	}
 
 	for _, tt := range flagtests {
@@ -128,7 +129,7 @@ func TestGetUrl(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	var flagtests = []struct {
+	flagtests := []struct {
 		in  string
 		out string
 	}{
@@ -168,15 +169,15 @@ func TestStore(t *testing.T) {
 		})
 	}
 
-	//clear files
+	// clear files
 	os.Remove(tmp)
 	os.RemoveAll(testRoot)
 }
 
 func TestRemove(t *testing.T) {
-	tmp := "file1"
+	tmp := "ifile1"
 	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0644)
-	cLink, _ := testStorage.Store(tmp, "/r_test/file.txt")
+	cLink, _ := testStorage.Store(tmp, "/r_test/ifile.txt")
 
 	fullPath := testStorage.cLinkToPath(cLink)
 	_, err := os.Stat(fullPath)
@@ -194,7 +195,7 @@ func TestRemove(t *testing.T) {
 		t.Errorf("Check removed file err: %q", err)
 	}
 
-	//clear
+	// clear
 	os.Remove(tmp)
 	os.RemoveAll(testRoot)
 }

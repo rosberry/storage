@@ -16,7 +16,7 @@ type (
 		StorageKey string
 		Endpoint   string
 		Root       string
-		BufferSize int //bytes
+		BufferSize int // bytes
 	}
 
 	Local struct {
@@ -63,7 +63,8 @@ func (b *Local) GetURL(cLink string, options ...interface{}) (URL string) {
 		log.Println("Failed check storage key:", cLink, b.cfg.StorageKey)
 		return ""
 	}
-	u, err := url.Parse(endSlash(b.cfg.Endpoint) + strings.TrimLeft(cLink, b.cfg.StorageKey+":"))
+
+	u, err := url.Parse(endSlash(b.cfg.Endpoint) + strings.TrimPrefix(cLink, b.cfg.StorageKey+":"))
 	if err != nil {
 		log.Println("Parse err:", err)
 		return ""
@@ -132,7 +133,7 @@ func (b *Local) cLinkToPath(cLink string) (path string) {
 	if !checkStorageKey(cLink, b.cfg.StorageKey) {
 		return ""
 	}
-	return endSlash(b.cfg.Root) + strings.TrimLeft(cLink, b.cfg.StorageKey+":")
+	return endSlash(b.cfg.Root) + strings.TrimPrefix(cLink, b.cfg.StorageKey+":")
 }
 
 func checkStorageKey(cLink string, storageKey string) (ok bool) {
