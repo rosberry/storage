@@ -23,7 +23,7 @@ bpStorage := bypass.New()
 ```golang
 import "github.com/rosberry/storage/local"
 
-lStorage := local.New(local.Config{
+lStorage := local.New(&local.Config{
 	StorageKey: cfg["storageKey"],
 	Endpoint:   cfg["endpoint"],
 	Root:       cfg["root"],
