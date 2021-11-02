@@ -124,6 +124,9 @@ func copy(src, dst string, bufferSize int) error {
 	}
 	return err
 }
+func (b *Local) GetCLink(path string) (cLink string) {
+	return b.pathToCLink(path)
+}
 
 func (b *Local) pathToCLink(path string) (cLink string) {
 	return fmt.Sprintf("%s:%s", b.cfg.StorageKey, strings.TrimLeft(path, "/"))

@@ -62,17 +62,25 @@ func (s *S3Storage) getSession() *session.Session {
 	}))
 }
 
+func (s *S3Storage) internalPath(path string) string {
+	u4, _ := uuid.NewV4()
+	internalPath := "/" + path + u4.String()
+
+	return internalPath
+}
+
+func (s *S3Storage) GetCLink(path string) (cLink string) {
+	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, s.internalPath(path))
+}
+
 func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
 	uploader := s3manager.NewUploader(s.getSession())
 
 	f, _ := os.Open(filePath)
 	defer f.Close()
 
-	u4, _ := uuid.NewV4()
-
 	mimetype := cm.GetFileContentType(f)
-
-	internalPath := "/" + path + u4.String()
+	internalPath := s.internalPath(path)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:      aws.String(s.cfg.BucketName),
 		Key:         aws.String(s.cfg.Prefix + internalPath),
@@ -80,7 +88,7 @@ func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
 		ContentType: aws.String(mimetype),
 	})
 
-	cLink = fmt.Sprintf("%s:%s", s.cfg.StorageKey, internalPath)
+	cLink = s.GetCLink(path)
 	return
 }
 

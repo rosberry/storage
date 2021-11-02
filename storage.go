@@ -15,6 +15,7 @@ type (
 		Store(filePath, path string) (cLink string, err error)
 		GetURL(cLink string, options ...interface{}) (URL string)
 		Remove(cLink string) (err error)
+		GetCLink(path string) (cLink string)
 	}
 
 	abstractStorage struct {
@@ -88,6 +89,22 @@ func CreateCLink(filePath, path string) (cLink string, err error) {
 		return
 	}
 	return CreateCLinkInStorage(filePath, path, *aStorage.defaultStorageKey)
+}
+
+func PrepareCLinkInStorage(path, storageKey string) (cLink string, err error) {
+	s, e := aStorage.getStorage(storageKey)
+	if e != nil {
+		return "", e
+	}
+	return s.GetCLink(path), nil
+}
+
+func PrepareCLink(path string) (cLink string, err error) {
+	if aStorage.defaultStorageKey == nil {
+		err = ErrNoDefaultStorage
+		return
+	}
+	return PrepareCLinkInStorage(path, *aStorage.defaultStorageKey)
 }
 
 //GetURL - return http link by cLink

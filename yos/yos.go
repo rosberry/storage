@@ -59,6 +59,14 @@ func New(cfg *Config) *YandexObjStorage {
 	}
 }
 
+func (y *YandexObjStorage) internalPath(path string) string {
+	return path
+}
+
+func (y *YandexObjStorage) GetCLink(path string) (cLink string) {
+	return fmt.Sprintf("%s:%s", y.cfg.StorageKey, path)
+}
+
 func (y *YandexObjStorage) Store(filePath, path string) (cLink string, err error) {
 	// Initialize minio client object.
 	minioClient, err := minio.New(y.endpoint, &minio.Options{
@@ -73,14 +81,14 @@ func (y *YandexObjStorage) Store(filePath, path string) (cLink string, err error
 	defer f.Close()
 
 	mimetype := cm.GetFileContentType(f)
-	internalPath := path
+	internalPath := y.internalPath(path)
 
 	_, err = minioClient.FPutObject(context.Background(), y.cfg.BucketName, internalPath, filePath, minio.PutObjectOptions{ContentType: mimetype})
 	if err != nil {
 		log.Println(err)
 	}
 
-	cLink = fmt.Sprintf("%s:%s", y.cfg.StorageKey, internalPath)
+	cLink = y.GetCLink(path)
 	return
 }
 
