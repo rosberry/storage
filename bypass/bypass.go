@@ -22,6 +22,10 @@ func (b *Bypass) Store(filePath, path string) (cLink string, err error) {
 	return "", ErrMethodNotImplemented
 }
 
+func (b *Bypass) StoreByCLink(filePath, cLink string) (err error) {
+	return ErrMethodNotImplemented
+}
+
 func (b *Bypass) GetURL(cLink string, options ...interface{}) (URL string) {
 	return cLink
 }
