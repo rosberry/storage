@@ -145,7 +145,7 @@ func (b *Local) GetCLink(path string) (cLink string) {
 }
 
 func (b *Local) internalPathToCLink(internalPath string) (cLink string) {
-	return b.pathToCLink(internalPath)
+	return b.pathToCLink(strings.TrimPrefix(internalPath, b.cfg.Root))
 }
 
 func (b *Local) pathToCLink(path string) (cLink string) {

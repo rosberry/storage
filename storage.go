@@ -142,5 +142,6 @@ func UploadByCLink(filePath, cLink string) (err error) {
 		return fmt.Errorf("failed get storage by cLink: %w", err)
 	}
 
-
+	err = s.StoreByCLink(filePath, cLink)
+	return err
 }
