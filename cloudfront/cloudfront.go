@@ -43,6 +43,10 @@ func New(cfg *Config) *CFStorage {
 	}
 }
 
+func (c *CFStorage) GetCLink(path string) (cLink string) {
+	return c.cfg.StorageCtl.GetCLink(path)
+}
+
 func (c *CFStorage) Store(filePath, path string) (cLink string, err error) {
 	return c.cfg.StorageCtl.Store(filePath, path)
 }
