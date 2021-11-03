@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"time"
 )
@@ -16,6 +17,7 @@ type (
 		GetURL(cLink string, options ...interface{}) (URL string)
 		Remove(cLink string) (err error)
 		GetCLink(path string) (cLink string)
+		StoreByCLink(filePath, cLink string) (err error)
 	}
 
 	abstractStorage struct {
@@ -132,4 +134,13 @@ func SetDefaultStorage(storageKey string) (err error) {
 	}
 	aStorage.defaultStorageKey = &storageKey
 	return
+}
+
+func UploadByCLink(filePath, cLink string) (err error) {
+	s, err := aStorage.getStorageByCLink(cLink)
+	if err != nil {
+		return fmt.Errorf("failed get storage by cLink: %w", err)
+	}
+
+
 }

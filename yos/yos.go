@@ -169,3 +169,7 @@ func checkExistObject(headUrl string) (exist bool) {
 	}
 	return true
 }
+
+func (y *YandexObjStorage) StoreByCLink(filePath, cLink string) (err error) {
+	return nil
+}

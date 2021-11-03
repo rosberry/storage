@@ -162,3 +162,11 @@ func checkExistObject(headUrl string) (exist bool) {
 	}
 	return true
 }
+
+func (b *YandexObjStorage) GetCLink(path string) (cLink string) {
+	return fmt.Sprintf("%s:%s", b.cfg.StorageKey, path)
+}
+
+func (b *YandexObjStorage) StoreByCLink(filePath, cLink string) (err error) {
+	return nil
+}
