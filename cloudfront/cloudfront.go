@@ -90,3 +90,7 @@ func (c *CFStorage) GetURL(cLink string, options ...interface{}) (URL string) {
 func (c *CFStorage) Remove(cLink string) (err error) {
 	return c.cfg.StorageCtl.Remove(cLink)
 }
+
+func (c *CFStorage) StoreByCLink(filePath, cLink string) (err error) {
+	return nil
+}

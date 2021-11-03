@@ -3,8 +3,10 @@ package s3
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
+	"strings"
 
 	cm "github.com/rosberry/storage/common"
 
@@ -70,17 +72,39 @@ func (s *S3Storage) internalPath(path string) string {
 }
 
 func (s *S3Storage) GetCLink(path string) (cLink string) {
-	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, s.internalPath(path))
+	return s.getCLinkByInternalPath(s.internalPath(path))
+}
+
+func (s *S3Storage) getCLinkByInternalPath(internalPath string) (cLink string) {
+	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, internalPath)
+}
+
+func (s *S3Storage) getInternalPathByCLink(cLink string) (internalPath string) {
+	internalPath = strings.TrimPrefix(cLink, s.cfg.StorageKey+":")
+
+	log.Printf("internal path by clink '%s' = '%s'", cLink, internalPath)
+
+	return internalPath
 }
 
 func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
+	return s.storeByInternalPath(filePath, s.internalPath(path))
+}
+
+func (s *S3Storage) StoreByCLink(filePath, cLink string) (err error) {
+	_, err = s.storeByInternalPath(filePath, s.getInternalPathByCLink(cLink))
+
+	return err
+}
+
+func (s *S3Storage) storeByInternalPath(filePath, internalPath string) (cLink string, err error) {
 	uploader := s3manager.NewUploader(s.getSession())
 
 	f, _ := os.Open(filePath)
 	defer f.Close()
 
 	mimetype := cm.GetFileContentType(f)
-	internalPath := s.internalPath(path)
+
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:      aws.String(s.cfg.BucketName),
 		Key:         aws.String(s.cfg.Prefix + internalPath),
@@ -88,9 +112,10 @@ func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
 		ContentType: aws.String(mimetype),
 	})
 
-	cLink = s.GetCLink(path)
+	cLink = s.getCLinkByInternalPath(internalPath)
 	return
 }
+
 
 func (s *S3Storage) prepareURL(cLink string) (u *url.URL, err error) {
 	u, err = url.Parse(cLink)

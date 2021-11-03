@@ -48,13 +48,29 @@ func New(cfg *Config) *Local {
 	}
 }
 
+func (b *Local) internalPath(path string) (internalPath string) {
+	return endSlash(b.cfg.Root)+strings.TrimLeft(path, "/")
+}
+
 func (b *Local) Store(filePath, path string) (cLink string, err error) {
-	err = copy(filePath, b.cfg.Root+strings.TrimLeft(path, "/"), b.cfg.BufferSize)
+	return b.storeByInternalPath(filePath, b.internalPath(path))
+}
+
+func (b *Local) StoreByCLink(filePath, cLink string) (err error) {
+	internalPath := b.cLinkToPath(cLink)
+
+	_, err = b.storeByInternalPath(filePath, internalPath)
+
+	return
+}
+
+func (b *Local) storeByInternalPath(filePath, internalPath string ) (cLink string, err error) {
+	err = copy(filePath, internalPath, b.cfg.BufferSize)
 	if err != nil {
 		return "", err
 	}
 
-	cLink = b.pathToCLink(path)
+	cLink = b.internalPathToCLink(internalPath)
 	return cLink, nil
 }
 
@@ -126,6 +142,10 @@ func copy(src, dst string, bufferSize int) error {
 }
 func (b *Local) GetCLink(path string) (cLink string) {
 	return b.pathToCLink(path)
+}
+
+func (b *Local) internalPathToCLink(internalPath string) (cLink string) {
+	return b.pathToCLink(strings.TrimPrefix(internalPath, b.cfg.Root))
 }
 
 func (b *Local) pathToCLink(path string) (cLink string) {
