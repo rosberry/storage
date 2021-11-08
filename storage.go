@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -144,4 +145,8 @@ func UploadByCLink(filePath, cLink string) (err error) {
 
 	err = s.StoreByCLink(filePath, cLink)
 	return err
+}
+
+func GetPathByCLink(cLink string) (path string) {
+	return cLink[strings.LastIndex(cLink, ":")+1:]
 }
