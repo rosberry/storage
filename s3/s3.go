@@ -8,14 +8,14 @@ import (
 	"os"
 	"strings"
 
-	cm "github.com/rosberry/storage/common"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	uuid "github.com/nu7hatch/gouuid"
+
+	cm "github.com/rosberry/storage/common"
 )
 
 type (
@@ -42,9 +42,7 @@ const (
 	S3HostTemplate = "%s.s3.amazonaws.com"
 )
 
-var (
-	ErrStorageKeyNotMatch = errors.New("Storage Key did not match!")
-)
+var ErrStorageKeyNotMatch = errors.New("Storage Key did not match!")
 
 func New(cfg *Config) *S3Storage {
 	scheme := SchemeHTTPWithSSL
@@ -72,7 +70,7 @@ func (s *S3Storage) internalPath(path string) string {
 }
 
 func (s *S3Storage) GetCLink(path string) (cLink string) {
-	return s.getCLinkByInternalPath(s.internalPath(path))
+	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, path)
 }
 
 func (s *S3Storage) getCLinkByInternalPath(internalPath string) (cLink string) {
@@ -116,21 +114,31 @@ func (s *S3Storage) storeByInternalPath(filePath, internalPath string) (cLink st
 	return
 }
 
-
 func (s *S3Storage) prepareURL(cLink string) (u *url.URL, err error) {
-	u, err = url.Parse(cLink)
+	var uc *url.URL
+
+	uc, err = url.Parse(cLink)
 	if err != nil {
 		return
 	}
-	if u.Scheme != s.cfg.StorageKey {
+
+	if uc.Scheme != s.cfg.StorageKey {
 		err = ErrStorageKeyNotMatch
 		return
 	}
+
+	u = &url.URL{}
+
 	u.Scheme = s.scheme
 	u.Host = fmt.Sprintf(S3HostTemplate, s.cfg.BucketName)
-	u.Path = s.cfg.Prefix + u.Path
-	return
 
+	u.Path = uc.Path
+	if uc.Opaque != "" {
+		u.Path = "/" + uc.Opaque
+	}
+	u.Path = s.cfg.Prefix + u.Path
+
+	return
 }
 
 func (s *S3Storage) GetURL(cLink string, options ...interface{}) (URL string) {
