@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	uuid "github.com/nu7hatch/gouuid"
 
 	cm "github.com/rosberry/storage/common"
 )
@@ -62,19 +61,8 @@ func (s *S3Storage) getSession() *session.Session {
 	}))
 }
 
-func (s *S3Storage) internalPath(path string) string {
-	u4, _ := uuid.NewV4()
-	internalPath := "/" + path + u4.String()
-
-	return internalPath
-}
-
 func (s *S3Storage) GetCLink(path string) (cLink string) {
 	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, path)
-}
-
-func (s *S3Storage) getCLinkByInternalPath(internalPath string) (cLink string) {
-	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, internalPath)
 }
 
 func (s *S3Storage) getInternalPathByCLink(cLink string) (internalPath string) {
@@ -86,7 +74,7 @@ func (s *S3Storage) getInternalPathByCLink(cLink string) (internalPath string) {
 }
 
 func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
-	return s.storeByInternalPath(filePath, s.internalPath(path))
+	return s.storeByInternalPath(filePath, path)
 }
 
 func (s *S3Storage) StoreByCLink(filePath, cLink string) (err error) {
@@ -105,12 +93,12 @@ func (s *S3Storage) storeByInternalPath(filePath, internalPath string) (cLink st
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket:      aws.String(s.cfg.BucketName),
-		Key:         aws.String(s.cfg.Prefix + internalPath),
+		Key:         aws.String(s.cfg.Prefix + "/" + internalPath),
 		Body:        f,
 		ContentType: aws.String(mimetype),
 	})
 
-	cLink = s.getCLinkByInternalPath(internalPath)
+	cLink = s.GetCLink(internalPath)
 	return
 }
 
