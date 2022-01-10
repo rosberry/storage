@@ -2,16 +2,58 @@
 
 A wrapper for working with files in popular cloud storage
 
-## Supported storages:
+## Storage types:
+
+
+### Supported:
 - Direct links (```bypass```)
 - Local (```local```)
 - S3 (```s3```)
 - Cloudfront (```cloudfront```)
 - Yandex Object Storage (```yos```)
 
-## Init:
+Types values:
+- TypeBypass = "bypass"
+- TypeLocal = "local"
+- TypeS3 = "s3"
+- TypeCloudFront = "cf"
+- TypeCloudFrontSigned = "cfs"
+- TypeYOS = "yos"
+- TypeYOSv2 = "yos2"
 
-### Bypass
+Each of the types implements the interface:
+```golang
+Storage interface {
+	Store(filePath, path string) (cLink string, err error)
+	GetURL(cLink string, options ...interface{}) (URL string)
+	Remove(cLink string) (err error)
+	GetCLink(path string) (cLink string)
+	StoreByCLink(filePath, cLink string) (err error)
+}
+```
+
+You can create and use each of the types of storages separately.
+
+Example:
+```golang
+import "github.com/rosberry/storage/local"
+
+lStorage := local.New(&local.Config{
+	StorageKey: cfg["storageKey"],
+	Endpoint:   cfg["endpoint"],
+	Root:       cfg["root"],
+	BufferSize: 32 * 1024,
+})
+
+cLink, err := lStorage.Store(filePath, path)
+...
+
+url := lStorage.GetURL(cLink)
+...
+```
+
+### Create
+#### Bypass
 
 ```golang
 import "github.com/rosberry/storage/bypass"
@@ -19,7 +61,7 @@ import "github.com/rosberry/storage/bypass"
 bpStorage := bypass.New()
 ```
 
-### Local
+#### Local
 ```golang
 import "github.com/rosberry/storage/local"
 
@@ -31,7 +73,7 @@ lStorage := local.New(&local.Config{
 })
 ```
 
-### S3
+#### S3
 ```golang
 import "github.com/rosberry/storage/s3"
 
@@ -45,7 +87,7 @@ s3Storage := s3.New(&s3.Config{
 })
 ```
 
-### Cloudfront
+#### Cloudfront
 ```golang
 import "github.com/rosberry/storage/cloudfront"
 
@@ -68,7 +110,7 @@ cfStorage := cloudfront.New(&cloudfront.Config{
 })
 ```
 
-### YOS
+#### YOS
 ```golang
 import "github.com/rosberry/storage/yos"
 
@@ -82,32 +124,133 @@ yosStorage := yos.New(&yos.Config{
 })
 ```
 
-## Multiple storages
+#### YOS v2
 ```golang
-import "github.com/rosberry/storage"
-import "github.com/rosberry/storage/bypass"
-import "github.com/rosberry/storage/local"
-import "github.com/rosberry/storage/s3"
-import "github.com/rosberry/storage/yos"
-import "github.com/rosberry/storage/cloudfront"
+import "github.com/rosberry/storage/yos/v2"
 
+yosStorage := yos.New(&yos.Config{
+	StorageKey:      cfg["storage_key"],
+	Region:          cfg["region"],
+	AccessKeyID:     cfg["access_key_id"],
+	SecretAccessKey: cfg["secret_access_key"],
+	BucketName:      cfg["bucket_name"],
+	Prefix:          cfg["prefix"],
+})
+```
+
+## Abstract storage
+
+But the correct use of the library - use of an abstract storage, which includes one or more implementations of storage types.
+You do not have to use specific types of methods. Use abstract storage methods.
+
+#### Global instance (classic flow)
+
+```golang
+import (
+	"github.com/rosberry/storage"
+	"github.com/rosberry/storage/bypass"
+	"github.com/rosberry/storage/local"
+	"github.com/rosberry/storage/s3"
+	"github.com/rosberry/storage/yos"
+	yos2 "github.com/rosberry/storage/yos/v2"
+	"github.com/rosberry/storage/cloudfront"
+)
+
+// Init storage types
+// ....
+
+// Add storage types
 // bypass
 storage.AddStorage("http", bypass.New())
 storage.AddStorage("https", bypass.New())
 // local
-storage.AddStorage(cfg["local_storage_key"], lStorage)
+storage.AddStorage(localStorageKey, lStorage)
 // s3
-storage.AddStorage(cfg["s3_storage_key"], s3Storage)
+storage.AddStorage(s3StorageKey, s3Storage)
 // yos
-storage.AddStorage(cfg["yos_storage_key"], yosStorage)
-// Cloudfront
-storage.AddStorage(cfg["cf_storage_key"], cfStorage)
+storage.AddStorage(yosStoragKey, yosStorage)
+storage.AddStorage(yos2StorageKey, yos2Storage)
+// cloudfront
+storage.AddStorage(cfStorageKey, cfStorage)
+storage.AddStorage(cfsStorageKey, cfsStorage)
 
 // usage
-st := storage.GetStorage("s3_storage_key")
+cLink, err := storage.CreateCLinkInStorage(filePath, path, s3StorageKey)
+...
+
+url := storage.GetURL(cLink)
+...
 ```
 
-### Functions
+#### Local instance (experimental flow)
+You can create an unlimited number of the local instances of the abstract storage and use the same methods.
+```golang
+// ...
+import "github.com/rosberry/storage/core"
+
+localInstance := core.New()
+
+// Init storage types
+// ....
+
+// Add storage types
+// bypass
+localInstance.AddStorage("http", bypass.New())
+localInstance.AddStorage("https", bypass.New())
+// local
+localInstance.AddStorage(localStorageKey, lStorage)
+// ...
+
+// usage
+cLink, err := localInstance.CreateCLinkInStorage(filePath, path, s3StorageKey)
+...
+
+url := localInstance.GetURL(cLink)
+...
+
+```
+
+You can also use instance creation with automatic configuration parsing
+```golang
+// ...
+import "github.com/rosberry/storage/core"
+
+//...
+var config *core.StoragesConfig
+
+// Parsing config from file
+//...
+
+localInstance := storage.NewWithConfig(&config)
+
+// usage
+cLink, err := localInstance.CreateCLinkInStorage(filePath, path, s3StorageKey)
+...
+
+url := localInstance.GetURL(cLink)
+...
+
+```
+
+The configuration is the type:
+```golang
+// package github.com/rosberry/storage/core
+
+type (
+	StoragesConfig struct {
+		Default   string          `json:"default" yaml:"default"`
+		Instances []StorageConfig `json:"instances" yaml:"instances"`
+	}
+
+	StorageConfig struct {
+		Key  string            `json:"key" yaml:"key"`
+		Type string            `json:"type" yaml:"type"`
+		Cfg  map[string]string `json:"config" yaml:"config"`
+	}
+)
+```
+
+### Abstract storage methods
 
 Add storage to storage list
 ```golang
@@ -143,7 +286,24 @@ Set storage as default
 func SetDefaultStorage(storageKey string) (err error)
 ```
 
-### Example
+#### Prepare cLink and upload in two step
+You can create cLink without upload file and then upload file later.
+
+Prepare cLink (by analogy with the `CreateCLink...`):
+```golang
+//default storage
+func PrepareCLinkInStorage(path, storageKey string) (cLink string, err error)
+
+//selected storage
+func PrepareCLink(path string) (cLink string, err error)
+```
+
+Upload file:
+```golang
+UploadByCLink(filePath, cLink string) (err error) 
+```
+
+## Example
 
 ```golang
 if sp.Photo != "" {
@@ -166,6 +326,10 @@ if sp.Photo != "" {
 	}
 }
 ```
+
+## Restrictions and well-known problems
+- You can not use the '_' symbol in the key
+- The key must be in the lower case
 
 ## About
 

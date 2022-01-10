@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/aws/aws-sdk-go/service/cloudfront/sign"
-	"github.com/rosberry/storage"
+	"github.com/rosberry/storage/core"
 )
 
 type (
@@ -16,7 +16,7 @@ type (
 		CFPrefix     string
 		NoSSL        bool
 		SignURLs     bool
-		StorageCtl   storage.Storage
+		StorageCtl   core.Storage
 		PrivateKeyID string
 		PrivateKey   string
 	}
@@ -65,7 +65,7 @@ func (c *CFStorage) GetURL(cLink string, options ...interface{}) (URL string) {
 	if c.cfg.SignURLs {
 		signed := false
 		for _, op := range options {
-			if expirationVerifier, ok := op.(storage.ExpirationVerifier); ok {
+			if expirationVerifier, ok := op.(core.ExpirationVerifier); ok {
 				expire := expirationVerifier.GetAccessExpireTime(URL)
 				block, _ := pem.Decode([]byte(c.cfg.PrivateKey))
 				privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)

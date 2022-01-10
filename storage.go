@@ -1,152 +1,59 @@
 package storage
 
 import (
-	"errors"
-	"fmt"
-	"net/url"
-	"strings"
-	"time"
+	"github.com/rosberry/storage/core"
 )
 
-type (
-	ExpirationVerifier interface {
-		GetAccessExpireTime(cLink string) (expires time.Time)
-	}
-
-	Storage interface {
-		Store(filePath, path string) (cLink string, err error)
-		GetURL(cLink string, options ...interface{}) (URL string)
-		Remove(cLink string) (err error)
-		GetCLink(path string) (cLink string)
-		StoreByCLink(filePath, cLink string) (err error)
-	}
-
-	abstractStorage struct {
-		defaultStorageKey *string
-		storages          map[string]Storage
-	}
-)
-
-var (
-	ErrStorageNotFound   = errors.New("Storage not found")
-	ErrStorageNil        = errors.New("Storage pointer is nil")
-	ErrStorageKeyIsEmpty = errors.New("Storage key is empty")
-	ErrNoDefaultStorage  = errors.New("Default storage not specified")
-	ErrCLinkError        = errors.New("CLink error")
-)
-
-var aStorage = &abstractStorage{
-	storages: make(map[string]Storage),
-}
+var aStorage = core.New()
 
 //AddStorage - add new storage to storages list
-func AddStorage(storageKey string, storage Storage) (err error) {
-	if storageKey == "" {
-		return ErrStorageKeyIsEmpty
-	}
-	if storage == nil {
-		return ErrStorageNil
-	}
-	aStorage.storages[storageKey] = storage
-	return
+func AddStorage(storageKey string, storage core.Storage) (err error) {
+	return aStorage.AddStorage(storageKey, storage)
 }
 
 //GetStorage - get storage from list by storage by
-func GetStorage(storageKey string) (s Storage, err error) {
-	var ok bool
-	if s, ok = aStorage.storages[storageKey]; !ok {
-		return nil, ErrStorageNotFound
-	}
-	return
-}
-
-func (a *abstractStorage) getStorage(storageKey string) (s Storage, err error) {
-	var ok bool
-	if s, ok = a.storages[storageKey]; !ok {
-		return nil, ErrStorageNotFound
-	}
-	return
-}
-
-func (a *abstractStorage) getStorageByCLink(cLink string) (s Storage, err error) {
-	u, e := url.Parse(cLink)
-	if e != nil || u.Scheme == "" {
-		return nil, ErrCLinkError
-	}
-	return a.getStorage(u.Scheme)
+func GetStorage(storageKey string) (s core.Storage, err error) {
+	return aStorage.GetStorage(storageKey)
 }
 
 //CreateCLinkInStorage - save file and create clink in selected storage by storageKey
 func CreateCLinkInStorage(filePath, path, storageKey string) (cLink string, err error) {
-	s, e := aStorage.getStorage(storageKey)
-	if e != nil {
-		return "", e
-	}
-	return s.Store(filePath, path)
+	return aStorage.CreateCLinkInStorage(filePath, path, storageKey)
 }
 
 //CreateCLink - save file and create cLink in default storage
 func CreateCLink(filePath, path string) (cLink string, err error) {
-	if aStorage.defaultStorageKey == nil {
-		err = ErrNoDefaultStorage
-		return
-	}
-	return CreateCLinkInStorage(filePath, path, *aStorage.defaultStorageKey)
+	return aStorage.CreateCLink(filePath, path)
 }
 
 func PrepareCLinkInStorage(path, storageKey string) (cLink string, err error) {
-	s, e := aStorage.getStorage(storageKey)
-	if e != nil {
-		return "", e
-	}
-	return s.GetCLink(path), nil
+	return aStorage.PrepareCLinkInStorage(path, storageKey)
 }
 
 func PrepareCLink(path string) (cLink string, err error) {
-	if aStorage.defaultStorageKey == nil {
-		err = ErrNoDefaultStorage
-		return
-	}
-	return PrepareCLinkInStorage(path, *aStorage.defaultStorageKey)
+	return aStorage.PrepareCLink(path)
 }
 
 //GetURL - return http link by cLink
 func GetURL(cLink string, options ...interface{}) (URL string) {
-	s, err := aStorage.getStorageByCLink(cLink)
-	if err != nil {
-		return ""
-	}
-	return s.GetURL(cLink, options...)
+	return aStorage.GetURL(cLink, options...)
 }
 
 //Delete - delete file in storage by cLink
 func Delete(cLink string) (err error) {
-	s, e := aStorage.getStorageByCLink(cLink)
-	if e != nil {
-		return e
-	}
-	return s.Remove(cLink)
+	return aStorage.Delete(cLink)
 }
 
 //SetDefaultStorage - set storage as default
 func SetDefaultStorage(storageKey string) (err error) {
-	if _, ok := aStorage.storages[storageKey]; !ok {
-		return ErrStorageNotFound
-	}
-	aStorage.defaultStorageKey = &storageKey
-	return
+	return aStorage.SetDefaultStorage(storageKey)
 }
 
 func UploadByCLink(filePath, cLink string) (err error) {
-	s, err := aStorage.getStorageByCLink(cLink)
-	if err != nil {
-		return fmt.Errorf("failed get storage by cLink: %w", err)
-	}
-
-	err = s.StoreByCLink(filePath, cLink)
-	return err
+	return aStorage.UploadByCLink(filePath, cLink)
 }
 
 func GetPathByCLink(cLink string) (path string) {
-	return cLink[strings.LastIndex(cLink, ":")+1:]
+	return aStorage.GetPathByCLink(cLink)
 }
+
