@@ -8,8 +8,7 @@ import (
 	"github.com/rosberry/storage/core"
 	"github.com/rosberry/storage/local"
 	"github.com/rosberry/storage/s3"
-	"github.com/rosberry/storage/yos"
-	yos2 "github.com/rosberry/storage/yos/v2"
+	"github.com/rosberry/storage/yos/v2"
 )
 
 const (
@@ -19,7 +18,6 @@ const (
 	TypeCloudFront = "cf"
 	TypeCloudFrontSigned = "cfs"
 	TypeYOS = "yos"
-	TypeYOSv2 = "yos2"
 )
 
 func NewWithConfig(config *core.StoragesConfig) *core.AbstractStorage {
@@ -79,15 +77,6 @@ func NewWithConfig(config *core.StoragesConfig) *core.AbstractStorage {
 			}))
 		case TypeYOS:
 			aStorage.AddStorage(key, yos.New(&yos.Config{
-				StorageKey:      key,
-				Region:          instance.Cfg["region"],
-				AccessKeyID:     instance.Cfg["access_key_id"],
-				SecretAccessKey: instance.Cfg["secret_access_key"],
-				BucketName:      instance.Cfg["bucket_name"],
-				Prefix:          instance.Cfg["prefix"],
-			}))
-		case TypeYOSv2:
-			aStorage.AddStorage(key, yos2.New(&yos2.Config{
 				StorageKey:      key,
 				Region:          instance.Cfg["region"],
 				AccessKeyID:     instance.Cfg["access_key_id"],

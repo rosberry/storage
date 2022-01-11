@@ -19,7 +19,6 @@ Types values:
 - TypeCloudFront = "cf"
 - TypeCloudFrontSigned = "cfs"
 - TypeYOS = "yos"
-- TypeYOSv2 = "yos2"
 
 Each of the types implements the interface:
 ```golang
@@ -112,20 +111,6 @@ cfStorage := cloudfront.New(&cloudfront.Config{
 
 #### YOS
 ```golang
-import "github.com/rosberry/storage/yos"
-
-yosStorage := yos.New(&yos.Config{
-	StorageKey:      cfg["storage_key"],
-	Region:          cfg["region"],
-	AccessKeyID:     cfg["access_key_id"],
-	SecretAccessKey: cfg["secret_access_key"],
-	BucketName:      cfg["bucket_name"],
-	Prefix:          cfg["prefix"],
-})
-```
-
-#### YOS v2
-```golang
 import "github.com/rosberry/storage/yos/v2"
 
 yosStorage := yos.New(&yos.Config{
@@ -151,8 +136,7 @@ import (
 	"github.com/rosberry/storage/bypass"
 	"github.com/rosberry/storage/local"
 	"github.com/rosberry/storage/s3"
-	"github.com/rosberry/storage/yos"
-	yos2 "github.com/rosberry/storage/yos/v2"
+	"github.com/rosberry/storage/yos/v2"
 	"github.com/rosberry/storage/cloudfront"
 )
 
@@ -169,7 +153,6 @@ storage.AddStorage(localStorageKey, lStorage)
 storage.AddStorage(s3StorageKey, s3Storage)
 // yos
 storage.AddStorage(yosStoragKey, yosStorage)
-storage.AddStorage(yos2StorageKey, yos2Storage)
 // cloudfront
 storage.AddStorage(cfStorageKey, cfStorage)
 storage.AddStorage(cfsStorageKey, cfsStorage)
@@ -300,7 +283,7 @@ func PrepareCLink(path string) (cLink string, err error)
 
 Upload file:
 ```golang
-UploadByCLink(filePath, cLink string) (err error) 
+func UploadByCLink(filePath, cLink string) (err error) 
 ```
 
 ## Example
