@@ -78,15 +78,43 @@ func TestPathToCLink(t *testing.T) {
 	}
 }
 
-func TestCLinkToUrl(t *testing.T) {
+func TestPathToInternalPath(t *testing.T) {
 	flagtests := []struct {
 		in  string
 		out string
 	}{
-		{"localFile:folder/file1.jpg", testRootWithoutEndSlash + "/folder/file1.jpg"},
-		{"localFile:folder/folder2/file2.jpg", testRootWithoutEndSlash + "/folder/folder2/file2.jpg"},
-		{"localFile:file1.jpg", testRootWithoutEndSlash + "/file1.jpg"},
-		{"localFile:file 1.jpg", testRootWithoutEndSlash + "/file 1.jpg"},
+		{"/folder/file1.jpg", testRoot + "folder/file1.jpg"},
+		{"/folder/folder2/file2.jpg", testRoot + "folder/folder2/file2.jpg"},
+		{"folder/file1.jpg", testRoot + "folder/file1.jpg"},
+		{"folder/folder2/file2.jpg", testRoot + "folder/folder2/file2.jpg"},
+		{"/file1.jpg", testRoot + "file1.jpg"},
+		{"/file 1.jpg", testRoot + "file 1.jpg"},
+		{"file1.jpg", testRoot + "file1.jpg"},
+		{"path/with/endslash/", testRoot + "path/with/endslash"},
+		{"/path/with/endslash/", testRoot + "path/with/endslash"},
+	}
+
+	for _, tt := range flagtests {
+		t.Run(tt.in, func(t *testing.T) {
+			s := testStorage.pathToInternalPath(tt.in)
+			if s == tt.out {
+				t.Logf("got %q, want %q", s, tt.out)
+			} else {
+				t.Errorf("got %q, want %q", s, tt.out)
+			}
+		})
+	}
+}
+
+func TestCLinkPath(t *testing.T) {
+	flagtests := []struct {
+		in  string
+		out string
+	}{
+		{"localFile:folder/file1.jpg", "folder/file1.jpg"},
+		{"localFile:folder/folder2/file2.jpg", "folder/folder2/file2.jpg"},
+		{"localFile:file1.jpg", "file1.jpg"},
+		{"localFile:file 1.jpg", "file 1.jpg"},
 		{"anotherKey:file1.jpg", ""},
 	}
 
@@ -143,7 +171,7 @@ func TestStore(t *testing.T) {
 	}
 
 	tmp := "file1"
-	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0644)
+	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0o644)
 
 	for _, tt := range flagtests {
 		t.Run(tt.in, func(t *testing.T) {
@@ -158,11 +186,15 @@ func TestStore(t *testing.T) {
 			}
 
 			fullPath := testStorage.cLinkToPath(cLink)
-			fileInfo, err := os.Stat(fullPath)
+			fileInfo, err := os.Stat(testStorage.pathToInternalPath(fullPath))
 			if err != nil {
 				t.Errorf("Check file err: %q", err)
 			}
-			tmpFileInfo, _ := os.Stat(tmp)
+			tmpFileInfo, err := os.Stat(tmp)
+			if err != nil {
+				t.Errorf("Check tmp file err: %q", err)
+			}
+
 			if fileInfo.Size() != tmpFileInfo.Size() {
 				t.Errorf("Not equal size: %q", cLink)
 			}
@@ -174,13 +206,52 @@ func TestStore(t *testing.T) {
 	os.RemoveAll(testRoot)
 }
 
+func TestStoreByCLink(t *testing.T) {
+	flagtests := []struct {
+		in string
+	}{
+		{"localFile:folder/file1.jpg"},
+		{"localFile:folder/folder2/file2.jpg"},
+	}
+
+	tmp := "file1"
+	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0o644)
+
+	for _, tt := range flagtests {
+		t.Run(tt.in, func(t *testing.T) {
+			err := testStorage.StoreByCLink(tmp, tt.in)
+			if err != nil {
+				t.Errorf("Store err: %q", err)
+			}
+
+			fullPath := testStorage.cLinkToPath(tt.in)
+			fileInfo, err := os.Stat(testStorage.pathToInternalPath(fullPath))
+			if err != nil {
+				t.Errorf("Check file err: %q", err)
+			}
+			tmpFileInfo, err := os.Stat(tmp)
+			if err != nil {
+				t.Errorf("Check tmp file err: %q", err)
+			}
+
+			if fileInfo.Size() != tmpFileInfo.Size() {
+				t.Errorf("Not equal size: %q", tt.in)
+			}
+		})
+	}
+
+	// clear files
+	os.Remove(tmp)
+	os.RemoveAll(testRoot)
+}
+
 func TestRemove(t *testing.T) {
 	tmp := "ifile1"
-	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0644)
+	ioutil.WriteFile(tmp, []byte("hello\ngo\n"), 0o644)
 	cLink, _ := testStorage.Store(tmp, "/r_test/ifile.txt")
 
 	fullPath := testStorage.cLinkToPath(cLink)
-	_, err := os.Stat(fullPath)
+	_, err := os.Stat(testStorage.pathToInternalPath(fullPath))
 	if err != nil {
 		t.Errorf("Check file err: %q", err)
 	}
