@@ -31,7 +31,7 @@ func (b *Bypass) GetURL(cLink string, options ...interface{}) (URL string) {
 }
 
 func (b *Bypass) GetCLink(path string) (cLink string) {
-	return (path)
+	return path
 }
 
 func (b *Bypass) Remove(cLink string) (err error) {
