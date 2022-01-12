@@ -3,10 +3,12 @@ package cloudfront
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"net/url"
 
 	"github.com/aws/aws-sdk-go/service/cloudfront/sign"
 	"github.com/rosberry/storage"
+	"github.com/rosberry/storage/common"
 )
 
 type (
@@ -34,9 +36,11 @@ const (
 
 func New(cfg *Config) *CFStorage {
 	scheme := SchemeHTTPWithSSL
+
 	if cfg.NoSSL {
 		scheme = SchemeHTTPWithoutSSL
 	}
+
 	return &CFStorage{
 		cfg:    *cfg,
 		scheme: scheme,
@@ -48,49 +52,75 @@ func (c *CFStorage) GetCLink(path string) (cLink string) {
 }
 
 func (c *CFStorage) Store(filePath, path string) (cLink string, err error) {
-	return c.cfg.StorageCtl.Store(filePath, path)
-}
-
-func (c *CFStorage) GetURL(cLink string, options ...interface{}) (URL string) {
-	u, err := url.Parse(cLink)
-	if err != nil || u.Scheme != c.cfg.StorageKey {
-		return
-	}
-	u.Scheme = c.scheme
-	u.Host = c.cfg.DomainName
-	u.Path = c.cfg.CFPrefix + u.Path
-
-	URL = u.String()
-
-	if c.cfg.SignURLs {
-		signed := false
-		for _, op := range options {
-			if expirationVerifier, ok := op.(storage.ExpirationVerifier); ok {
-				expire := expirationVerifier.GetAccessExpireTime(URL)
-				block, _ := pem.Decode([]byte(c.cfg.PrivateKey))
-				privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-				if err == nil {
-					signer := sign.NewURLSigner(c.cfg.PrivateKeyID, privateKey)
-					URL, err = signer.Sign(URL, expire)
-					if err == nil {
-						signed = true
-					}
-
-				}
-			}
-		}
-		if signed == false {
-			URL = ""
-		}
+	cLink, err = c.cfg.StorageCtl.Store(filePath, path)
+	if err != nil {
+		return "", fmt.Errorf("failed to store %s: %w", path, err)
 	}
 
 	return
 }
 
+func (c *CFStorage) GetURL(cLink string, options ...interface{}) string {
+	uc, err := url.Parse(cLink)
+	if err != nil || uc.Scheme != c.cfg.StorageKey {
+		return ""
+	}
+
+	u := &url.URL{}
+
+	u.Scheme = c.scheme
+	u.Host = c.cfg.DomainName
+
+	u.Path = uc.Path
+	if uc.Opaque != "" {
+		u.Path = "/" + uc.Opaque
+	}
+
+	u.Path = c.cfg.CFPrefix + u.Path
+
+	URL := u.String()
+
+	if !c.cfg.SignURLs {
+		return URL
+	}
+
+	var signed bool
+
+	for _, op := range options {
+		if expirationVerifier, ok := op.(storage.ExpirationVerifier); ok {
+			expire := expirationVerifier.GetAccessExpireTime(URL)
+			block, _ := pem.Decode([]byte(c.cfg.PrivateKey))
+
+			privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err == nil {
+				signer := sign.NewURLSigner(c.cfg.PrivateKeyID, privateKey)
+
+				URL, err = signer.Sign(URL, expire)
+				if err == nil {
+					signed = true
+				}
+			}
+		}
+	}
+
+	if !signed {
+		URL = ""
+	}
+
+	return URL
+}
+
 func (c *CFStorage) Remove(cLink string) (err error) {
-	return c.cfg.StorageCtl.Remove(cLink)
+	return c.cfg.StorageCtl.Remove(cLink) // nolint:wrapcheck
 }
 
 func (c *CFStorage) StoreByCLink(filePath, cLink string) (err error) {
-	return nil
+	path := common.CLinkToPath(c.cfg.StorageKey, cLink)
+
+	_, err = c.cfg.StorageCtl.Store(filePath, path)
+	if err != nil {
+		return fmt.Errorf("failed to store %s: %w", path, err)
+	}
+
+	return
 }
