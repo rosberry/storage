@@ -48,7 +48,7 @@ func (b *Local) storeByInternalPath(filePath, internalPath string) (cLink string
 }
 
 func checkStorageKey(cLink string, storageKey string) (ok bool) {
-	return strings.Contains(cLink, storageKey+":")
+	return common.CheckStorageKey(cLink, storageKey)
 }
 
 func endSlash(s string) string {

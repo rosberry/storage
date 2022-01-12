@@ -57,7 +57,7 @@ func PathToCLink(storageKey, path string) (cLink string) {
 //
 // Backward convertation after PathToCLink(storageKey, path string) (cLink string)
 func CLinkToPath(storageKey, cLink string) (path string) {
-	if !checkStorageKey(cLink, storageKey) {
+	if !CheckStorageKey(cLink, storageKey) {
 		return ""
 	}
 
@@ -70,6 +70,6 @@ func endSlash(s string) string {
 }
 
 // Checks the cLink contain storage key
-func checkStorageKey(cLink string, storageKey string) (ok bool) {
+func CheckStorageKey(cLink string, storageKey string) (ok bool) {
 	return strings.Contains(cLink, storageKey+":")
 }

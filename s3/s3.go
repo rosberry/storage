@@ -3,18 +3,10 @@ package s3
 import (
 	"errors"
 	"fmt"
-	"log"
-	"net/url"
-	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
-	cm "github.com/rosberry/storage/common"
+	"github.com/rosberry/storage/common"
 )
 
 type (
@@ -28,7 +20,7 @@ type (
 		NoSSL           bool
 	}
 
-	S3Storage struct {
+	S3Storage struct { // nolint:golint
 		cfg    Config
 		scheme string
 	}
@@ -41,112 +33,64 @@ const (
 	S3HostTemplate = "%s.s3.amazonaws.com"
 )
 
-var ErrStorageKeyNotMatch = errors.New("Storage Key did not match!")
+var (
+	ErrStorageKeyNotMatch = errors.New("storage Key did not match")
+	ErrFailedGetFilePath  = errors.New("failed to get file path")
+)
 
 func New(cfg *Config) *S3Storage {
 	scheme := SchemeHTTPWithSSL
 	if cfg.NoSSL {
 		scheme = SchemeHTTPWithoutSSL
 	}
+
 	return &S3Storage{
 		cfg:    *cfg,
 		scheme: scheme,
 	}
 }
 
-func (s *S3Storage) getSession() *session.Session {
-	return session.Must(session.NewSession(&aws.Config{
-		Region:      aws.String(s.cfg.Region),
-		Credentials: credentials.NewStaticCredentials(s.cfg.AccessKeyID, s.cfg.SecretAccessKey, ""),
-	}))
-}
-
-func (s *S3Storage) GetCLink(path string) (cLink string) {
-	return fmt.Sprintf("%s:%s", s.cfg.StorageKey, path)
-}
-
-func (s *S3Storage) getInternalPathByCLink(cLink string) (internalPath string) {
-	internalPath = strings.TrimPrefix(cLink, s.cfg.StorageKey+":")
-
-	log.Printf("internal path by clink '%s' = '%s'", cLink, internalPath)
-
-	return internalPath
-}
-
 func (s *S3Storage) Store(filePath, path string) (cLink string, err error) {
-	return s.storeByInternalPath(filePath, path)
+	return s.storeByPath(filePath, path)
 }
 
 func (s *S3Storage) StoreByCLink(filePath, cLink string) (err error) {
-	_, err = s.storeByInternalPath(filePath, s.getInternalPathByCLink(cLink))
+	path := common.CLinkToPath(s.cfg.StorageKey, cLink)
+
+	_, err = s.storeByPath(filePath, path)
 
 	return err
 }
 
-func (s *S3Storage) storeByInternalPath(filePath, internalPath string) (cLink string, err error) {
-	uploader := s3manager.NewUploader(s.getSession())
-
-	f, _ := os.Open(filePath)
-	defer f.Close()
-
-	mimetype := cm.GetFileContentType(f)
-
-	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket:      aws.String(s.cfg.BucketName),
-		Key:         aws.String(s.cfg.Prefix + "/" + internalPath),
-		Body:        f,
-		ContentType: aws.String(mimetype),
-	})
-
-	cLink = s.GetCLink(internalPath)
-	return
-}
-
-func (s *S3Storage) prepareURL(cLink string) (u *url.URL, err error) {
-	var uc *url.URL
-
-	uc, err = url.Parse(cLink)
-	if err != nil {
-		return
-	}
-
-	if uc.Scheme != s.cfg.StorageKey {
-		err = ErrStorageKeyNotMatch
-		return
-	}
-
-	u = &url.URL{}
-
-	u.Scheme = s.scheme
-	u.Host = fmt.Sprintf(S3HostTemplate, s.cfg.BucketName)
-
-	u.Path = uc.Path
-	if uc.Opaque != "" {
-		u.Path = "/" + uc.Opaque
-	}
-	u.Path = s.cfg.Prefix + u.Path
-
-	return
-}
-
-func (s *S3Storage) GetURL(cLink string, options ...interface{}) (URL string) {
+func (s *S3Storage) GetURL(cLink string, options ...interface{}) string {
 	u, err := s.prepareURL(cLink)
 	if err != nil {
 		return ""
 	}
+
 	return u.String()
 }
 
 func (s *S3Storage) Remove(cLink string) (err error) {
-	u, e := s.prepareURL(cLink)
-	if e != nil {
-		return e
+	path := common.CLinkToPath(s.cfg.StorageKey, cLink)
+	if path == "" {
+		return fmt.Errorf("%s: %w", cLink, ErrFailedGetFilePath)
+	}
+
+	internalPath := common.PathToInternalPath(s.cfg.Prefix, path)
+	if internalPath == "" {
+		return fmt.Errorf("%s: %s: %w", cLink, path, ErrFailedGetFilePath)
 	}
 
 	svc := s3.New(s.getSession())
 	_, err = svc.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(s.cfg.BucketName),
-		Key:    aws.String(u.Path),
+		Key:    aws.String(internalPath),
 	})
+
 	return
+}
+
+func (s *S3Storage) GetCLink(path string) (cLink string) {
+	return common.PathToCLink(s.cfg.StorageKey, path)
 }
