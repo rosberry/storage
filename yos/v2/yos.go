@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	cm "github.com/rosberry/storage/common"
+	"github.com/rosberry/storage/common"
 )
 
 type (
@@ -30,6 +29,8 @@ type (
 		cfg      Config
 		scheme   string
 		endpoint string
+
+		client *minio.Client
 	}
 )
 
@@ -43,6 +44,12 @@ const (
 )
 
 const (
+	putLinkLifeTime        = 30 * time.Minute
+	checkExistLinkLifeTime = 10 * time.Minute
+	getObjectLinkLifeTime  = 24 * time.Hour
+)
+
+const (
 	SchemeHTTPWithSSL    = "https"
 	SchemeHTTPWithoutSSL = "http"
 
@@ -50,123 +57,82 @@ const (
 )
 
 var (
-	ErrStorageKeyNotMatch   = errors.New("Storage Key did not match!")
-	ErrMethodNotImplemented = errors.New("Method is not implemented")
+	ErrStorageKeyNotMatch   = errors.New("storage Key did not match")
+	ErrMethodNotImplemented = errors.New("method is not implemented")
 )
-
-var Instance = &YandexObjStorage{}
 
 func New(cfg *Config) *YandexObjStorage {
 	scheme := SchemeHTTPWithSSL
+
 	if cfg.NoSSL {
 		scheme = SchemeHTTPWithoutSSL
 	}
-	return &YandexObjStorage{
+
+	y := &YandexObjStorage{
 		cfg:      *cfg,
 		scheme:   scheme,
 		endpoint: endpoint,
 	}
-}
 
-func (y *YandexObjStorage) Store(filePath, path string) (cLink string, err error) {
-	// Initialize minio client object.
 	minioClient, err := minio.New(y.endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(y.cfg.AccessKeyID, y.cfg.SecretAccessKey, ""),
-		Secure: !y.cfg.NoSSL,
-	})
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	f, _ := os.Open(filePath)
-	defer f.Close()
-
-	mimetype := cm.GetFileContentType(f)
-	internalPath := path
-
-	_, err = minioClient.FPutObject(context.Background(), y.cfg.BucketName, internalPath, filePath, minio.PutObjectOptions{ContentType: mimetype})
-	if err != nil {
-		log.Println(err)
-	}
-
-	cLink = fmt.Sprintf("%s:%s", y.cfg.StorageKey, internalPath)
-	return
-}
-
-func (y *YandexObjStorage) GetURL(cLink string, options ...interface{}) (URL string) {
-	if strings.Index(cLink, "http") > -1 {
-		return cLink
-	}
-
-	obj := strings.Replace(cLink, y.cfg.StorageKey+":", "", 1)
-
-	s3Client, err := minio.New(y.endpoint, &minio.Options{
 		Region: y.cfg.Region,
 		Creds:  credentials.NewStaticV4(y.cfg.AccessKeyID, y.cfg.SecretAccessKey, ""),
 		Secure: !y.cfg.NoSSL,
 	})
 	if err != nil {
-		log.Println("Failed create new minio client:", err)
-		return ""
+		log.Printf("failed init minio client: %v", err)
 	}
 
-	for _, o := range options {
-		if option, ok := o.(YandexOption); ok {
-			switch option {
-			case PublicLink:
-				downloadLink := fmt.Sprintf("https://%v/%v/%v", y.endpoint, y.cfg.BucketName, obj)
-				return downloadLink
-			case LinkForPutObject:
-				presignedURL, err := s3Client.PresignedPutObject(context.Background(), y.cfg.BucketName, obj, time.Duration(30)*time.Minute)
-				if err != nil {
-					log.Println("Failed generate presignedURL: ", err)
-					return ""
-				}
-				return presignedURL.String()
-			}
-		}
-	}
+	y.client = minioClient
 
-	//check exist object
-	headUrl, err := s3Client.PresignedHeadObject(context.Background(), y.cfg.BucketName, obj, time.Duration(600)*time.Second, nil)
-	if !checkExistObject(headUrl.String()) {
-		return ""
-	}
-
-	presignedURL, err := s3Client.PresignedGetObject(context.Background(), y.cfg.BucketName, obj, time.Duration(24)*time.Hour, nil)
-	if err != nil {
-		log.Println("Failed generate presignedURL: ", err)
-	}
-
-	return presignedURL.String()
+	return y
 }
 
-func (b *YandexObjStorage) Remove(cLink string) (err error) {
+func (y *YandexObjStorage) Store(filePath, path string) (cLink string, err error) {
+	f, _ := os.Open(filePath)
+	defer f.Close()
+
+	mimetype := common.GetFileContentType(f)
+	internalPath := common.PathToInternalPath(y.cfg.Prefix, path)
+
+	_, err = y.client.FPutObject(
+		context.Background(),
+		y.cfg.BucketName,
+		internalPath,
+		filePath,
+		minio.PutObjectOptions{ContentType: mimetype})
+	if err != nil {
+		log.Print(err)
+	}
+
+	cLink = common.PathToCLink(y.cfg.StorageKey, path)
+
+	return
+}
+
+func (y *YandexObjStorage) GetURL(cLink string, options ...interface{}) string {
+	if strings.Contains(cLink, "http") {
+		return cLink
+	}
+
+	return y.prepareURL(cLink, options...)
+}
+
+func (y *YandexObjStorage) Remove(cLink string) (err error) {
 	return ErrMethodNotImplemented
 }
 
-func checkExistObject(headUrl string) (exist bool) {
-	req, err := http.NewRequest("HEAD", headUrl, nil)
+func (y *YandexObjStorage) GetCLink(path string) (cLink string) {
+	return common.PathToCLink(y.cfg.StorageKey, path)
+}
+
+func (y *YandexObjStorage) StoreByCLink(filePath, cLink string) (err error) {
+	path := common.CLinkToPath(y.cfg.StorageKey, cLink)
+
+	_, err = y.Store(filePath, path)
 	if err != nil {
-		log.Println(err)
+		return fmt.Errorf("failed store file: %w", err)
 	}
 
-	// send request with headers
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return false
-	}
-	return true
-}
-
-func (b *YandexObjStorage) GetCLink(path string) (cLink string) {
-	return fmt.Sprintf("%s:%s", b.cfg.StorageKey, path)
-}
-
-func (b *YandexObjStorage) StoreByCLink(filePath, cLink string) (err error) {
 	return nil
 }
