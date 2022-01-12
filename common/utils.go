@@ -1,3 +1,7 @@
+// Glossary
+//	path - The name with which the user wants to save the file
+//	internalPath - The path to the file in the repository (includes the prefix)
+//	cLink - Formed as a storage key + ':' + path
 package common
 
 import (

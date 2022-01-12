@@ -167,6 +167,12 @@ if sp.Photo != "" {
 }
 ```
 
+## Code glossary
+// Glossary
+//	path - The name with which the user wants to save the file
+//	internalPath - The path to the file in the repository (includes the prefix)
+//	cLink - Formed as a storage key + ':' + path
+
 ## About
 
 <img src="https://github.com/rosberry/Foundation/blob/master/Assets/full_logo.png?raw=true" height="100" />
